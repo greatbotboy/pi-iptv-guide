@@ -1,0 +1,181 @@
+#!/usr/bin/env python3
+"""Root helper for HDMI playback: console VT, CPU governor, one-shot boot tune."""
+
+from __future__ import annotations
+
+import fcntl
+import os
+import re
+import sys
+from pathlib import Path
+
+KDSETMODE = 0x4B3A
+KD_TEXT = 0
+KD_GRAPHICS = 1
+CURSOR_BLINK = "/sys/class/graphics/fbcon/cursor_blink"
+ACTIVE_VT = "/sys/class/tty/tty0/active"
+CPUFREQ_GOVS = Path("/sys/devices/system/cpu")
+CONFIG_CANDIDATES = (
+    Path("/boot/firmware/config.txt"),
+    Path("/boot/config.txt"),
+)
+
+ACTIONS = (
+    "quiet",
+    "restore",
+    "cpu-performance",
+    "cpu-ondemand",
+    "tune-boot",
+)
+
+
+def _active_tty() -> str:
+    try:
+        name = open(ACTIVE_VT, encoding="utf-8").read().strip()
+    except OSError:
+        name = "tty1"
+    if not name.startswith("tty"):
+        name = "tty1"
+    return f"/dev/{name}"
+
+
+def _set_kd_mode(mode: int) -> None:
+    path = _active_tty()
+    fd = os.open(path, os.O_RDWR)
+    try:
+        fcntl.ioctl(fd, KDSETMODE, mode)
+    finally:
+        os.close(fd)
+
+
+def _set_cursor_blink(on: bool) -> None:
+    try:
+        with open(CURSOR_BLINK, "w", encoding="utf-8") as f:
+            f.write("1" if on else "0")
+    except OSError as e:
+        print(f"cursor_blink: {e}", file=sys.stderr)
+
+
+def quiet() -> None:
+    _set_cursor_blink(False)
+    _set_kd_mode(KD_GRAPHICS)
+    try:
+        size = open("/sys/class/graphics/fb0/virtual_size", encoding="utf-8").read().strip()
+        w, h = (int(x) for x in size.split(","))
+        bpp = int(open("/sys/class/graphics/fb0/bits_per_pixel", encoding="utf-8").read().strip())
+        bytes_pp = max(bpp // 8, 2)
+        frame = b"\x00" * (w * h * bytes_pp)
+        fd = os.open("/dev/fb0", os.O_WRONLY)
+        try:
+            os.write(fd, frame)
+        finally:
+            os.close(fd)
+    except Exception as e:
+        print(f"clear fb: {e}", file=sys.stderr)
+
+
+def restore() -> None:
+    try:
+        _set_kd_mode(KD_TEXT)
+    except OSError as e:
+        print(f"KD_TEXT: {e}", file=sys.stderr)
+    _set_cursor_blink(True)
+
+
+def _set_governor(name: str) -> None:
+    written = 0
+    for gov in CPUFREQ_GOVS.glob("cpu*/cpufreq/scaling_governor"):
+        try:
+            gov.write_text(name + "\n", encoding="utf-8")
+            written += 1
+        except OSError as e:
+            print(f"{gov}: {e}", file=sys.stderr)
+    if not written:
+        raise RuntimeError(f"could not set governor {name}")
+    print(f"governor={name} ({written} cpus)")
+
+
+def tune_boot() -> None:
+    """Pi IPTV OS tune: free ARM RAM, disable camera/BT overlays."""
+    cfg = next((p for p in CONFIG_CANDIDATES if p.is_file()), None)
+    if cfg is None:
+        raise RuntimeError("config.txt not found")
+
+    text = cfg.read_text(encoding="utf-8", errors="replace")
+    original = text
+
+    # Drop classic gpu_mem split — KMS uses CMA; gpu_mem only steals ARM RAM.
+    text = re.sub(r"(?m)^\s*gpu_mem\s*=\s*.*\n?", "", text)
+
+    if re.search(r"(?m)^\s*camera_auto_detect\s*=", text):
+        text = re.sub(
+            r"(?m)^\s*camera_auto_detect\s*=\s*.*$",
+            "camera_auto_detect=0",
+            text,
+        )
+    else:
+        text = text.rstrip() + "\ncamera_auto_detect=0\n"
+
+    if not re.search(r"(?m)^\s*dtoverlay\s*=\s*disable-bt\s*$", text):
+        text = text.rstrip() + "\n# IPTV: free UART/CPU from Bluetooth\ndtoverlay=disable-bt\n"
+
+    if "# IPTV OS tune" not in text:
+        text = text.rstrip() + "\n# IPTV OS tune applied\n"
+
+    if text != original:
+        bak = cfg.with_suffix(cfg.suffix + ".bak.iptv-os")
+        if not bak.exists():
+            bak.write_text(original, encoding="utf-8")
+        cfg.write_text(text, encoding="utf-8")
+        print(f"updated {cfg}")
+    else:
+        print(f"already tuned: {cfg}")
+
+    # Best-effort runtime disables (persist via systemctl when available)
+    for cmd in (
+        ["systemctl", "disable", "--now", "bluetooth.service"],
+        ["systemctl", "disable", "--now", "hciuart.service"],
+        ["systemctl", "mask", "bluetooth.service"],
+    ):
+        try:
+            import subprocess
+
+            subprocess.run(cmd, capture_output=True, timeout=15, check=False)
+        except Exception as e:
+            print(f"{' '.join(cmd)}: {e}", file=sys.stderr)
+
+    _set_governor("performance")
+    print("tune-boot done (reboot recommended for config.txt)")
+
+
+def main() -> int:
+    if os.geteuid() != 0:
+        print("must run as root", file=sys.stderr)
+        return 1
+    if len(sys.argv) != 2 or sys.argv[1] not in ACTIONS:
+        print(f"usage: {sys.argv[0]} {'|'.join(ACTIONS)}", file=sys.stderr)
+        return 2
+    action = sys.argv[1]
+    try:
+        if action == "quiet":
+            quiet()
+        elif action == "restore":
+            restore()
+        elif action == "cpu-performance":
+            _set_governor("performance")
+        elif action == "cpu-ondemand":
+            # Prefer ondemand; fall back to powersave/schedutil if missing
+            try:
+                _set_governor("ondemand")
+            except RuntimeError:
+                _set_governor("schedutil")
+        elif action == "tune-boot":
+            tune_boot()
+    except Exception as e:
+        print(str(e), file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

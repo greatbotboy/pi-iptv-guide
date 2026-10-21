@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+data/channels.json
+data/epg.json
+data/local.m3u
+bin/ffmpeg
+bin/ffprobe
+bin/ffmpeg-lib/
+*.tar.xz
+app/config.local.yaml
+.env
+.env.*
+*.pem
+id_rsa
+id_ed25519

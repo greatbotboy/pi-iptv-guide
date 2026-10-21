@@ -1,0 +1,20 @@
+[Unit]
+Description=Pi IPTV Channel Guide
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/iptv-guide
+Environment=DISPLAY=:0
+Environment=WAYLAND_DISPLAY=wayland-0
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=XAUTHORITY=/home/pi/.Xauthority
+ExecStart=/home/pi/iptv-guide/.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8080 --app-dir /home/pi/iptv-guide/app
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

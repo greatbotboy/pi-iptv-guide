@@ -1,0 +1,8 @@
+#EXTM3U
+# Optional local override playlist. Copy to data/local.m3u (gitignored).
+# iptv-org often omits OTA affiliates. Add working HLS URLs here, then POST /api/refresh.
+#
+#EXTINF:-1 tvg-id="Create.us" tvg-logo="" group-title="Local",PBS Create
+https://create.lls.pbs.org/index.m3u8
+#EXTINF:-1 tvg-id="WorldChannel.us" tvg-logo="" group-title="Local",World Channel
+https://world.lls.pbs.org/index.m3u8

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0e14" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Pi IPTV Guide</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <div class="brand">
+        <h1>Pi Guide</h1>
+        <p class="tagline">News · Sports · Entertainment</p>
+      </div>
+      <div class="search-wrap">
+        <input id="search" type="search" placeholder="Search channels…" autocomplete="off" />
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="Categories">
+      <button class="tab active" data-cat="local" role="tab" aria-selected="true">Local</button>
+      <button class="tab" data-cat="news" role="tab" aria-selected="false">News</button>
+      <button class="tab" data-cat="sports" role="tab" aria-selected="false">Sports</button>
+      <button class="tab" data-cat="entertainment" role="tab" aria-selected="false">Entertainment</button>
+      <button class="tab" data-cat="all" role="tab" aria-selected="false">All</button>
+    </nav>
+
+    <p id="meta" class="meta"></p>
+
+    <div id="guide" class="guide" tabindex="0" aria-label="TV guide">
+      <div class="guide-corner" aria-hidden="true"></div>
+      <div id="time-ruler" class="time-ruler"></div>
+      <div id="channel-rail" class="channel-rail"></div>
+      <div id="grid-scroll" class="grid-scroll">
+        <div id="program-grid" class="program-grid"></div>
+        <div id="now-line" class="now-line hidden" aria-hidden="true"></div>
+      </div>
+    </div>
+
+    <p id="empty" class="empty hidden">No channels match.</p>
+
+    <aside id="info" class="info">
+      <div class="info-main">
+        <span id="info-ch" class="info-ch">—</span>
+        <strong id="info-title">Select a program</strong>
+        <span id="info-time" class="info-time"></span>
+      </div>
+      <p id="info-desc" class="info-desc"></p>
+    </aside>
+
+    <footer id="now" class="now hidden">
+      <div class="now-info">
+        <span class="now-label">Now playing</span>
+        <strong id="now-name">—</strong>
+      </div>
+      <button id="stop" type="button" class="stop">Stop</button>
+    </footer>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

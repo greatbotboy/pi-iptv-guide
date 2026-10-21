@@ -1,0 +1,41 @@
+playlist_url: "https://iptv-org.github.io/iptv/countries/us.m3u"
+channels_api_url: "https://iptv-org.github.io/api/channels.json"
+streams_api_url: "https://iptv-org.github.io/api/streams.json"
+feeds_api_url: "https://iptv-org.github.io/api/feeds.json"
+refresh_hours: 6
+categories:
+  - news
+  - sports
+  - entertainment
+# Shown in the guide header. Override in config.local.yaml.
+tagline: "News · Sports · Entertainment"
+# Market names, call signs, and iptv-org ids for the Local tab.
+# Put household-specific values in app/config.local.yaml (gitignored).
+# See app/config.local.yaml.example.
+local_markets: []
+local_channel_ids: []
+local_feed_ids: []
+local_broadcast_areas: []
+epg_url: "https://iptv-epg.org/files/epg-us.xml.gz"
+epg_refresh_hours: 6
+# Drop channels with no programme listings once EPG is loaded
+hide_unguided: true
+display: ":0"
+# Leave empty to auto-pick connected HDMI (vc4hdmi0/1); or set e.g. plughw:CARD=vc4hdmi1,DEV=0
+alsa_device: ""
+# This TV's preferred EDID mode is 1360x768. Force the 1080p60 mode it also advertises.
+hdmi_mode: "1920x1080@60"
+# WAN demuxer cushion (ms). Local /dev/shm rebuffer uses a much smaller queue.
+network_cache_ms: 8000
+# HLS live edge offset (segments behind live). More headroom = smoother, more delay.
+hls_live_start_index: -4
+# Copy remote HLS into /dev/shm before decoding (smooths Starlink jitter).
+stream_buffer: true
+stream_buffer_segments: 3
+stream_buffer_dir: "/dev/shm/iptv-guide"
+# 0 = play at the stream frame rate. Set 30 only if the Pi falls behind.
+max_display_fps: 0
+# Delay audio by N seconds if picture still trails sound (0 = off).
+audio_delay_sec: 0
+host: "0.0.0.0"
+port: 8080
