@@ -1,9 +1,16 @@
 # Pi IPTV Channel Guide
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+
 Cable-box style EPG for **US News, Sports & Entertainment**, plus a **local market** you configure yourself.
 Browse channels and what’s on, then click to play on the Pi HDMI output.
 
 On your LAN, open `http://<pi-address>:8080`. There is no login. Do not forward port 8080 to the internet. Playback only starts stream URLs that are already in the loaded catalog.
+
+![Pi Guide, All tab](docs/guide.png)
+
+The picture is the guide with the All tab selected. Programme titles in that shot are filled in so the grid is visible; a running Pi loads schedules from the XMLTV feed below.
 
 ## Features
 
@@ -93,3 +100,7 @@ cd app && uvicorn main:app --host 0.0.0.0 --port 8080
 ```
 
 Open http://localhost:8080 — first start may take a minute while the playlist and EPG download.
+
+## License
+
+[MIT](LICENSE)
