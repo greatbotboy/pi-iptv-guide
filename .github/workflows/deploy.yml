@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check out main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Sync into /home/pi/iptv-guide and restart
         run: bash deploy/apply-on-pi.sh
