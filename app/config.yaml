@@ -11,6 +11,7 @@ categories:
   - movies
 # Playlist entries with group-title Undefined (or missing) are dropped unless
 # listed here. Keys are channel id bases (no @SD/@East feed suffix).
+# Only kept when the HLS URL is reachable (geo-blocked / slate / dead dropped).
 category_overrides:
   BigTenNetwork.us: sports
   SECNetwork.us: sports

@@ -8,6 +8,7 @@ import re
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import urljoin
 
 import httpx
 import yaml
@@ -122,6 +123,86 @@ def _override_category(
     if cat in {c.lower() for c in categories}:
         return cat
     return None
+
+
+def _is_geo_blocked(name: str) -> bool:
+    return "[geo-blocked]" in (name or "").lower()
+
+
+def _first_hls_uri(playlist_text: str, base_url: str) -> str | None:
+    """Return the first media URI from an HLS master or media playlist."""
+    lines = [ln.strip() for ln in (playlist_text or "").splitlines() if ln.strip()]
+    for i, ln in enumerate(lines):
+        if ln.startswith("#EXT-X-STREAM-INF") or ln.startswith("#EXTINF"):
+            for nxt in lines[i + 1 :]:
+                if not nxt.startswith("#"):
+                    return urljoin(base_url, nxt)
+            return None
+    return None
+
+
+def _hls_reachable(url: str, timeout: float = 12.0) -> bool:
+    """True when the URL yields an HLS playlist and at least one media segment."""
+    if not url:
+        return False
+    # Official CDN slates are not real programming.
+    if "/slate/" in url.lower():
+        return False
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        )
+    }
+    try:
+        with httpx.Client(
+            timeout=timeout, follow_redirects=True, headers=headers
+        ) as client:
+            r = client.get(url)
+            if r.status_code != 200 or "#EXTM3U" not in r.text:
+                return False
+            media_url = _first_hls_uri(r.text, str(r.url))
+            if not media_url:
+                return False
+            if media_url != str(r.url):
+                if "/slate/" in media_url.lower():
+                    return False
+                r = client.get(media_url)
+                if r.status_code != 200 or "#EXTM3U" not in r.text:
+                    return False
+            seg = _first_hls_uri(r.text, str(r.url))
+            if not seg or "/slate/" in seg.lower():
+                return False
+            r = client.get(seg)
+            return r.status_code == 200 and len(r.content) > 1000
+    except Exception as e:
+        log.info("Stream probe failed for %s: %s", url[:80], e)
+        return False
+
+
+def _filter_override_streams(
+    channels: list[dict[str, Any]],
+    overrides: dict[str, str],
+) -> list[dict[str, Any]]:
+    """Keep override channels only when the stream is actually reachable."""
+    if not overrides:
+        return channels
+    bases = {str(k).lower() for k in overrides}
+    out: list[dict[str, Any]] = []
+    for ch in channels:
+        base = _channel_id_base(ch.get("tvg_id") or "").lower()
+        if base not in bases:
+            out.append(ch)
+            continue
+        name = ch.get("name") or ""
+        if _is_geo_blocked(name):
+            log.info("Skipping geo-blocked override channel: %s", name)
+            continue
+        if not _hls_reachable(ch.get("url") or ""):
+            log.info("Skipping unreachable override channel: %s", name)
+            continue
+        out.append(ch)
+    return out
 
 
 def _fetch_text(url: str, timeout: float = 90.0) -> str:
@@ -323,6 +404,8 @@ def build_channels(config: dict[str, Any] | None = None) -> list[dict[str, Any]]
     if not isinstance(overrides, dict):
         raise ValueError("category_overrides must be a mapping of tvg-id → category")
     remote = _classify_remote(raw, categories, markets, overrides)
+    # Overrides pull in Undefined-group channels; only keep ones that stream.
+    remote = _filter_override_streams(remote, overrides)
 
     api_local = _build_local_from_api(cfg)
     file_local = _parse_local_file(categories)
