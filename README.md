@@ -79,8 +79,12 @@ cp data/local.m3u.example data/local.m3u
 
 ## Deploy
 
+A push to `main` deploys on the Pi. The GitHub Actions runner there checks out that commit, syncs it into `/home/pi/iptv-guide`, and restarts the guide. Local market files (`app/config.local.yaml`, `data/local.m3u`) and the cached playlist and EPG stay on the Pi.
+
+To deploy from this machine instead:
+
 ```bash
-IPTV_HOST=pi@raspberrypi.local ./deploy/deploy.sh
+IPTV_HOST=pi@10.20.20.119 ./deploy/deploy.sh
 ```
 
 `IPTV_HOST` is required. `IPTV_REMOTE_DIR` defaults to `/home/pi/iptv-guide` (the usual Raspberry Pi OS account, not a personal path). The same script copies gitignored `app/config.local.yaml` and `data/local.m3u` when they exist in this tree, so a deploy from your machine still carries the local market.
