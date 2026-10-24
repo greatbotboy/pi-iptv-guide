@@ -7,8 +7,17 @@ categories:
   - news
   - sports
   - entertainment
+  - general
+  - movies
+# Playlist entries with group-title Undefined (or missing) are dropped unless
+# listed here. Keys are channel id bases (no @SD/@East feed suffix).
+category_overrides:
+  BigTenNetwork.us: sports
+  SECNetwork.us: sports
+  BYUTV.us: sports
+  truTV.us: sports
 # Shown in the guide header. Override in config.local.yaml.
-tagline: "News · Sports · Entertainment"
+tagline: "News · Sports · Entertainment · General · Movies"
 # Market names, call signs, and iptv-org ids for the Local tab.
 # Put household-specific values in app/config.local.yaml (gitignored).
 # See app/config.local.yaml.example.
@@ -39,3 +48,6 @@ max_display_fps: 0
 audio_delay_sec: 0
 host: "0.0.0.0"
 port: 8080
+# Scroll the guide on HDMI while no channel is playing (cage + Chromium on the Pi).
+# A desktop session is left alone, so this stays quiet on a dev machine.
+idle_screen: true

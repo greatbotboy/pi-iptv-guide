@@ -8,6 +8,11 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Pi IPTV Guide</title>
+  <script>
+    if (new URLSearchParams(location.search).get("screen") === "1") {
+      document.documentElement.classList.add("screen");
+    }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
@@ -18,7 +23,7 @@
     <header class="top">
       <div class="brand">
         <h1>Pi Guide</h1>
-        <p class="tagline">News · Sports · Entertainment</p>
+        <p class="tagline">News · Sports · Entertainment · General · Movies</p>
       </div>
       <div class="search-wrap">
         <input id="search" type="search" placeholder="Search channels…" autocomplete="off" />
@@ -30,6 +35,8 @@
       <button class="tab" data-cat="news" role="tab" aria-selected="false">News</button>
       <button class="tab" data-cat="sports" role="tab" aria-selected="false">Sports</button>
       <button class="tab" data-cat="entertainment" role="tab" aria-selected="false">Entertainment</button>
+      <button class="tab" data-cat="general" role="tab" aria-selected="false">General</button>
+      <button class="tab" data-cat="movies" role="tab" aria-selected="false">Movies</button>
       <button class="tab" data-cat="all" role="tab" aria-selected="false">All</button>
     </nav>
 

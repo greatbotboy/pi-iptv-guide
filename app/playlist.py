@@ -96,6 +96,34 @@ def _is_category(group: str, categories: list[str]) -> str | None:
     return None
 
 
+def _channel_id_base(tvg_id: str) -> str:
+    """Strip feed/quality suffix: ``BigTenNetwork.us@SD`` → ``BigTenNetwork.us``."""
+    if not tvg_id:
+        return ""
+    return tvg_id.split("@", 1)[0].strip()
+
+
+def _override_category(
+    tvg_id: str,
+    overrides: dict[str, str],
+    categories: list[str],
+) -> str | None:
+    """Map a playlist tvg-id through config ``category_overrides``."""
+    if not overrides:
+        return None
+    base = _channel_id_base(tvg_id)
+    if not base:
+        return None
+    lower_map = {str(k).lower(): v for k, v in overrides.items()}
+    raw = lower_map.get(base.lower())
+    if raw is None:
+        return None
+    cat = str(raw).strip().lower()
+    if cat in {c.lower() for c in categories}:
+        return cat
+    return None
+
+
 def _fetch_text(url: str, timeout: float = 90.0) -> str:
     with httpx.Client(timeout=timeout, follow_redirects=True) as client:
         r = client.get(url)
@@ -233,9 +261,11 @@ def _classify_remote(
     raw: list[dict[str, Any]],
     categories: list[str],
     markets: list[str],
+    overrides: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     seen_urls: set[str] = set()
+    overrides = overrides or {}
 
     for ch in raw:
         url = ch["url"]
@@ -243,6 +273,8 @@ def _classify_remote(
             continue
 
         cat = _is_category(ch.get("group", ""), categories)
+        if not cat:
+            cat = _override_category(ch.get("tvg_id", ""), overrides, categories)
         blob = f"{ch.get('name','')} {ch.get('tvg_id','')} {ch.get('group','')}"
         is_local = _matches_market(blob, markets)
 
@@ -262,17 +294,18 @@ def _classify_remote(
     return out
 
 
-def _parse_local_file() -> list[dict[str, Any]]:
+def _parse_local_file(categories: list[str]) -> list[dict[str, Any]]:
     if not LOCAL_M3U.exists():
         return []
     text = LOCAL_M3U.read_text(encoding="utf-8", errors="replace")
     channels = parse_m3u(text, source="local")
+    allowed = {c.lower() for c in categories}
     for ch in channels:
         ch["category"] = "local"
         ch["national_category"] = None
         ch["tags"] = ["local"]
         g = _normalize(ch.get("group", ""))
-        if g in ("news", "sports", "entertainment"):
+        if g in allowed:
             ch["tags"].append(g)
     return channels
 
@@ -286,12 +319,15 @@ def build_channels(config: dict[str, Any] | None = None) -> list[dict[str, Any]]
     log.info("Fetching playlist %s", playlist_url)
     m3u_text = _fetch_text(playlist_url)
     raw = parse_m3u(m3u_text, source="remote")
-    remote = _classify_remote(raw, categories, markets)
+    overrides = cfg.get("category_overrides") or {}
+    if not isinstance(overrides, dict):
+        raise ValueError("category_overrides must be a mapping of tvg-id → category")
+    remote = _classify_remote(raw, categories, markets, overrides)
 
     api_local = _build_local_from_api(cfg)
-    file_local = _parse_local_file()
+    file_local = _parse_local_file(categories)
 
-    # Merge: local.m3u first, then API locals, then remote news/sports/entertainment
+    # Merge: local.m3u first, then API locals, then remote category matches
     merged: list[dict[str, Any]] = []
     seen_urls: set[str] = set()
     seen_ids: set[str] = set()
@@ -323,14 +359,13 @@ def build_channels(config: dict[str, Any] | None = None) -> list[dict[str, Any]]
                 seen_ids.add(tid)
             merged.append(ch)
 
+    cat_order = {"local": 0}
+    for i, cat in enumerate(categories, start=1):
+        cat_order[cat] = i
+
     def sort_key(c: dict[str, Any]) -> tuple:
-        cat_order = {
-            "local": 0,
-            "news": 1,
-            "sports": 2,
-            "entertainment": 3,
-        }.get(c.get("category", ""), 9)
-        return (cat_order, _normalize(c.get("name", "")))
+        order = cat_order.get(c.get("category", ""), 9)
+        return (order, _normalize(c.get("name", "")))
 
     merged.sort(key=sort_key)
     return merged

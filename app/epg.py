@@ -113,6 +113,8 @@ STEM_ALIASES: dict[str, str] = {
     "news12pluslongisland": "news12longisland",
     "news12plusnewjersey": "news12newjersey",
     "redbulltv": "redbulltv",
+    # iptv-org uses BigTenNetwork.us; iptv-epg lists BigTen.us
+    "bigtennetwork": "bigten",
 }
 
 
@@ -350,18 +352,20 @@ CATEGORY_BASE = {
     "news": 200,
     "sports": 300,
     "entertainment": 400,
+    "general": 600,
+    "movies": 1000,
 }
 
 
 def assign_dial_numbers(channels: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Assign stable virtual dial numbers by category ranges."""
-    counters = {"local": 0, "news": 0, "sports": 0, "entertainment": 0, "other": 0}
+    counters = {cat: 0 for cat in (*CATEGORY_BASE, "other")}
     out: list[dict[str, Any]] = []
     for ch in channels:
         cat = ch.get("category") or "other"
         if cat not in CATEGORY_BASE:
             cat = "other"
-        base = CATEGORY_BASE.get(cat, 500)
+        base = CATEGORY_BASE.get(cat, 1200)
         counters[cat] = counters.get(cat, 0) + 1
         numbered = {**ch, "number": base + counters[cat]}
         out.append(numbered)

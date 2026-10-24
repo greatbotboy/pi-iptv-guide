@@ -636,6 +636,117 @@ input {
   }
 }
 
+/* HDMI idle guide: fill the TV and let the grid scroll on its own */
+html.screen {
+  --rail-w: 280px;
+  --row-h: 76px;
+  --ruler-h: 40px;
+  --px-per-min: 4.2;
+}
+
+html.screen,
+html.screen body {
+  height: 100%;
+  overflow: hidden;
+}
+
+html.screen body {
+  padding-bottom: 0;
+}
+
+html.screen .app {
+  max-width: none;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0.7rem 0.9rem 0.65rem;
+}
+
+html.screen .top {
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.35rem;
+}
+
+html.screen .search-wrap,
+html.screen .tabs {
+  display: none;
+}
+
+html.screen .brand h1 {
+  font-size: 2.4rem;
+}
+
+html.screen .tagline,
+html.screen .meta {
+  font-size: 1rem;
+}
+
+html.screen .meta {
+  margin: 0 0 0.4rem;
+}
+
+html.screen .guide {
+  flex: 1 1 auto;
+  height: auto;
+  max-height: none;
+  min-height: 0;
+}
+
+html.screen .grid-scroll,
+html.screen .channel-rail {
+  overflow: hidden !important;
+  scrollbar-width: none;
+  scroll-behavior: auto;
+}
+
+html.screen .screen-grid-track,
+html.screen .screen-rail-track {
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+}
+
+html.screen .grid-scroll::-webkit-scrollbar,
+html.screen .channel-rail::-webkit-scrollbar {
+  display: none;
+}
+
+html.screen .ch-num {
+  flex-basis: 2.6rem;
+  font-size: 1.05rem;
+}
+
+html.screen .ch-logo {
+  display: block;
+}
+
+html.screen .ch-logo.placeholder {
+  display: grid;
+}
+
+html.screen .ch-name,
+html.screen .prog-cell,
+html.screen .time-tick {
+  font-size: 1.05rem;
+}
+
+html.screen .info {
+  flex: 0 0 auto;
+  margin-top: 0.45rem;
+  padding: 0.75rem 0.9rem;
+}
+
+html.screen #info-title {
+  font-size: 1.35rem;
+}
+
+html.screen .info-desc {
+  font-size: 1rem;
+  -webkit-line-clamp: 2;
+}
+
 /* Desktop */
 @media (min-width: 1024px) {
   :root {

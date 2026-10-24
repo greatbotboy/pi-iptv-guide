@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 from epg import EpgStore, assign_dial_numbers
 from player import VlcPlayer
 from playlist import PlaylistStore, load_config
+from screen import GuideScreen
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("iptv")
@@ -39,6 +40,12 @@ player = VlcPlayer(
     max_display_fps=int(config.get("max_display_fps", 30)),
     audio_delay_sec=float(config.get("audio_delay_sec") or 0),
     hdmi_mode=str(config.get("hdmi_mode") or ""),
+)
+screen = GuideScreen(
+    port=int(config.get("port") or 8080),
+    hdmi_mode=str(config.get("hdmi_mode") or ""),
+    enabled=bool(config.get("idle_screen", True)),
+    display=str(config.get("display", ":0")),
 )
 
 
@@ -87,6 +94,17 @@ def _load_epg_background() -> None:
         log.error("Background EPG load failed: %s", e)
 
 
+def _screen_watch() -> None:
+    """Keep the scrolling guide on HDMI whenever playback is stopped."""
+    time.sleep(2)
+    while True:
+        try:
+            screen.sync(playing=player.status().running)
+        except Exception:
+            log.exception("Idle guide sync failed")
+        time.sleep(3)
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     log.info("Loading channel playlist…")
@@ -94,7 +112,9 @@ async def lifespan(_app: FastAPI):
     log.info("%d channels ready", len(store.channels))
     # EPG download/parse can take minutes — do not block the API/play endpoints
     threading.Thread(target=_load_epg_background, name="epg-load", daemon=True).start()
+    threading.Thread(target=_screen_watch, name="idle-screen", daemon=True).start()
     yield
+    screen.suspend()
 
 
 app = FastAPI(title="Pi IPTV Guide", lifespan=lifespan)
@@ -159,21 +179,28 @@ def api_play(body: PlayRequest) -> dict[str, Any]:
     url = body.url.strip()
     if url not in _catalog_urls():
         return {"ok": False, "error": "Stream is not in the catalog"}
-    state = player.play(url, name=body.name)
-    return {
-        "ok": state.running and not state.error,
-        "running": state.running,
-        "name": state.name,
-        "url": state.url,
-        "pid": state.pid,
-        "error": state.error,
-        "backend": state.backend,
-    }
+    screen.suspend()
+    show_guide = True
+    try:
+        state = player.play(url, name=body.name)
+        show_guide = not state.running
+        return {
+            "ok": state.running and not state.error,
+            "running": state.running,
+            "name": state.name,
+            "url": state.url,
+            "pid": state.pid,
+            "error": state.error,
+            "backend": state.backend,
+        }
+    finally:
+        screen.resume(show=show_guide)
 
 
 @app.post("/api/stop")
 def api_stop() -> dict[str, Any]:
     state = player.stop()
+    screen.resume(show=True)
     return {"ok": True, "running": state.running}
 
 
@@ -198,6 +225,7 @@ def api_status() -> dict[str, Any]:
         "playlist_updated_at": store.updated_at,
         "epg_updated_at": epg.updated_at,
         "epg_channel_count": len(epg.programs),
+        "idle_screen": screen.is_running(),
     }
 
 

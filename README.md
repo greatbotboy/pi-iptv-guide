@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 
-Cable-box style EPG for **US News, Sports & Entertainment**, plus a **local market** you configure yourself.
+Cable-box style EPG for **US News, Sports, Entertainment, General & Movies**, plus a **local market** you configure yourself.
 Browse channels and what’s on, then click to play on the Pi HDMI output.
 
 On your LAN, open `http://<pi-address>:8080`. There is no login. Do not forward port 8080 to the internet. Playback only starts stream URLs that are already in the loaded catalog.
@@ -15,7 +15,7 @@ The picture is the guide with the All tab selected. Programme titles in that sho
 ## Features
 
 - Cable-box guide: channel numbers, time ruler, program grid, “now” line
-- Tabs: Local · News · Sports · Entertainment · All
+- Tabs: Local · News · Sports · Entertainment · General · Movies · All
 - Search, arrow-key navigation, Enter to play
 - Now-playing bar with Stop
 - Playlist + EPG auto-refresh every 6 hours
@@ -49,6 +49,10 @@ The guide detects the Pi display mode on each play:
 Install VLC when you use a desktop session: `sudo apt install -y vlc` or `./deploy/install-vlc.sh`.
 
 `GET /api/status` reports `output_kind` (`desktop` | `framebuffer` | `none`) and the last `backend`.
+
+### Idle guide on the TV
+
+While no channel is playing, the Pi puts this guide on the HDMI output and scrolls through the channels. Install the kiosk stack on the Pi with `./deploy/install-screen.sh` (`cage` + Chromium). Set `idle_screen: false` in `app/config.yaml` to leave the console blank instead. Play closes the guide and starts video; Stop brings the scrolling guide back. A desktop session is not taken over.
 
 ### Smoothing (Starlink / high jitter)
 

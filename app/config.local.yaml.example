@@ -1,6 +1,6 @@
 # Copy to app/config.local.yaml. That file is gitignored.
 # Market names and call signs identify where this guide is used, so keep them local.
-tagline: "Your City · News · Sports · Entertainment"
+tagline: "Your City · News · Sports · Entertainment · General · Movies"
 local_markets:
   - your city
   - station call sign

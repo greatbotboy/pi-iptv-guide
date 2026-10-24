@@ -17,8 +17,9 @@
   const infoDesc = document.getElementById("info-desc");
   const tabs = [...document.querySelectorAll(".tab")];
   const taglineEl = document.querySelector(".tagline");
+  const screenMode = document.documentElement.classList.contains("screen");
 
-  let category = "local";
+  let category = screenMode ? "all" : "local";
   let query = "";
   let playingUrl = null;
   let debounceTimer = null;
@@ -29,6 +30,8 @@
   let timeTrack = null;
   let layoutKey = "";
   let resizeTimer = null;
+  let screenScroll = 0;
+  let screenRow = -1;
 
   function pxPerMin() {
     return (
@@ -139,6 +142,7 @@
   }
 
   function ensureCellVisible(cell) {
+    if (screenMode) return;
     const cellLeft = cell.offsetLeft;
     const cellRight = cellLeft + cell.offsetWidth;
     const viewLeft = gridScroll.scrollLeft;
@@ -303,6 +307,127 @@
     nowLine.style.height = `${data.channels.length * rowHeight()}px`;
   }
 
+  function ensureScreenTracks() {
+    if (!screenMode) return;
+    if (!channelRail.querySelector(".screen-rail-track")) {
+      const track = document.createElement("div");
+      track.className = "screen-rail-track";
+      while (channelRail.firstChild) track.appendChild(channelRail.firstChild);
+      channelRail.appendChild(track);
+    }
+    programGrid.classList.add("screen-grid-track");
+  }
+
+  function setScreenOffset(y) {
+    const top = Math.max(0, y);
+    const railTrack = channelRail.querySelector(".screen-rail-track");
+    programGrid.style.transform = `translate3d(0, ${-top}px, 0)`;
+    if (railTrack) railTrack.style.transform = `translate3d(0, ${-top}px, 0)`;
+    gridScroll.scrollTop = 0;
+    channelRail.scrollTop = 0;
+    gridScroll.dataset.screenY = String(top);
+  }
+
+  function screenOffset() {
+    return parseFloat(gridScroll.dataset.screenY || "0") || 0;
+  }
+
+  function updateScreenAnchor() {
+    if (!screenMode || !guideData || !guideData.channels.length) return;
+    const rh = rowHeight();
+    const mid = screenOffset() + gridScroll.clientHeight * 0.5;
+    const row = Math.max(
+      0,
+      Math.min(guideData.channels.length - 1, Math.floor(mid / rh))
+    );
+    if (row === screenRow) return;
+    screenRow = row;
+    const ch = guideData.channels[row];
+    channelRail.querySelectorAll(".channel-row.selected").forEach((el) => {
+      el.classList.remove("selected");
+    });
+    programGrid.querySelectorAll(".prog-cell.selected").forEach((el) => {
+      el.classList.remove("selected");
+    });
+    const rowBtn = channelRail.querySelector(`.channel-row[data-row="${row}"]`);
+    if (rowBtn) rowBtn.classList.add("selected");
+    const prog = nearestProgramIndex(ch, Date.now() / 1000);
+    const cell = programGrid.querySelector(
+      `.prog-cell[data-row="${row}"][data-prog="${prog}"]`
+    );
+    if (cell) cell.classList.add("selected");
+    updateInfo(ch, (ch.programs || [])[prog] || null);
+  }
+
+  function startScreenScroll() {
+    if (!screenMode) return;
+    if (screenScroll) {
+      cancelAnimationFrame(screenScroll);
+      screenScroll = 0;
+    }
+    ensureScreenTracks();
+
+    let last = performance.now();
+    let phase = "scroll"; // scroll | bottom | top
+    let phaseUntil = 0;
+    const speed = 48; // px/sec
+
+    function contentMax() {
+      const rh = rowHeight();
+      const total = (guideData.channels.length || 0) * rh;
+      return Math.max(0, total - gridScroll.clientHeight);
+    }
+
+    function tick(now) {
+      screenScroll = requestAnimationFrame(tick);
+      if (!guideData || guideData.channels.length < 2) return;
+
+      const max = contentMax();
+      if (max <= 4) {
+        updateScreenAnchor();
+        return;
+      }
+
+      if (phase === "bottom") {
+        if (now >= phaseUntil) {
+          setScreenOffset(0);
+          phase = "top";
+          phaseUntil = now + 1200;
+          last = now;
+        }
+        updateScreenAnchor();
+        return;
+      }
+
+      if (phase === "top") {
+        if (now >= phaseUntil) {
+          phase = "scroll";
+          last = now;
+        }
+        updateScreenAnchor();
+        return;
+      }
+
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      const next = screenOffset() + speed * dt;
+      if (next >= max - 0.5) {
+        setScreenOffset(max);
+        phase = "bottom";
+        phaseUntil = now + 2200;
+      } else {
+        setScreenOffset(next);
+      }
+      updateScreenAnchor();
+    }
+
+    setScreenOffset(0);
+    screenScroll = requestAnimationFrame(() => {
+      last = performance.now();
+      screenScroll = requestAnimationFrame(tick);
+    });
+  }
+
   function scrollToNow(data) {
     const now = Date.now() / 1000;
     if (now < data.window_start || now > data.window_end) return;
@@ -318,6 +443,7 @@
 
     guideData = data;
     layoutKey = currentLayoutKey();
+    screenRow = -1;
     if (!data.channels.length) {
       guideEl.classList.add("hidden");
       empty.classList.remove("hidden");
@@ -337,12 +463,17 @@
       } else {
         scrollToNow(data);
       }
-      focusRow = Math.min(focusRow, data.channels.length - 1);
-      focusProg = nearestProgramIndex(
-        data.channels[focusRow],
-        Date.now() / 1000
-      );
-      applyFocus();
+      if (screenMode) {
+        updateScreenAnchor();
+        startScreenScroll();
+      } else {
+        focusRow = Math.min(focusRow, data.channels.length - 1);
+        focusProg = nearestProgramIndex(
+          data.channels[focusRow],
+          Date.now() / 1000
+        );
+        applyFocus();
+      }
     }
 
     const when = data.epg_updated_at
@@ -358,16 +489,16 @@
     render(guideData, { keepScroll: true });
   }
 
-  async function load() {
+  async function load(opts = {}) {
     const params = new URLSearchParams();
     if (category && category !== "all") params.set("category", category);
     if (query) params.set("q", query);
-    params.set("hours", "4");
+    params.set("hours", screenMode ? "6" : "4");
     meta.textContent = "Loading guide…";
     try {
       const res = await fetch(`/api/guide?${params}`);
       const data = await res.json();
-      render(data);
+      render(data, { keepScroll: Boolean(opts.keepScroll) });
     } catch (err) {
       meta.textContent = "Failed to load guide";
       console.error(err);
@@ -375,6 +506,7 @@
   }
 
   async function play(ch) {
+    if (screenMode) return;
     try {
       const res = await fetch("/api/play", {
         method: "POST",
@@ -523,5 +655,5 @@
   setInterval(() => {
     if (guideData) updateNowLine(guideData);
   }, 30000);
-  setInterval(load, 5 * 60 * 1000);
+  setInterval(() => load({ keepScroll: true }), 5 * 60 * 1000);
 })();
