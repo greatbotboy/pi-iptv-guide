@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from epg import EpgStore, assign_dial_numbers
 from player import VlcPlayer
-from playlist import PlaylistStore, load_config
+from playlist import PlaylistStore, _normalize, load_config
 from screen import GuideScreen
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -57,12 +57,27 @@ def _hide_unguided() -> bool:
     return bool(store.config.get("hide_unguided", True))
 
 
+def _matches_query(channel: dict[str, Any], needle: str, now: float) -> bool:
+    if needle in _normalize(channel.get("name", "")):
+        return True
+    if needle in _normalize(channel.get("group", "")):
+        return True
+    prog = epg.current_program(channel.get("tvg_id") or "", at=now)
+    if prog and needle in _normalize(prog.get("title") or ""):
+        return True
+    return False
+
+
 def _guided_channels(
     q: str | None = None,
     category: str | None = None,
 ) -> list[dict[str, Any]]:
     """List channels, optionally dropping those with no EPG schedule."""
-    channels = store.list(q=q, category=category)
+    channels = store.list(category=category)
+    if q:
+        needle = _normalize(q)
+        now = time.time()
+        channels = [c for c in channels if _matches_query(c, needle, now)]
     if _hide_unguided() and epg.ready:
         channels = [c for c in channels if epg.has_guide(c.get("tvg_id") or "")]
     return assign_dial_numbers(channels)

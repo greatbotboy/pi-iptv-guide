@@ -425,6 +425,18 @@ class EpgStore:
         """True when at least one programme is cached for this channel id."""
         return bool(self._raw_programs(tvg_id))
 
+    def current_program(
+        self,
+        tvg_id: str,
+        at: float | None = None,
+    ) -> dict[str, Any] | None:
+        """Return the programme airing at ``at`` (default: now), if any."""
+        when = time.time() if at is None else at
+        for p in self._raw_programs(tvg_id):
+            if float(p["start"]) <= when < float(p["stop"]):
+                return p
+        return None
+
     @property
     def ready(self) -> bool:
         """True once any programme schedules are loaded (required before hiding)."""
